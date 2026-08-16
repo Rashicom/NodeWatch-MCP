@@ -43,24 +43,28 @@ def main() -> None:
 
     args = parser.parse_args()
 
-    # STDIO transport (Default for local LLM clients like Claude Desktop / Cursor)
-    if args.transport == "stdio":
-        # Do not print directly to stdout here; it corrupts JSON-RPC communication
-        mcp.run(transport="stdio")
+    try:
+        # STDIO transport (Default for local LLM clients like Claude Desktop / Cursor)
+        if args.transport == "stdio":
+            # Do not print directly to stdout here; it corrupts JSON-RPC communication
+            mcp.run(transport="stdio")
 
-    # HTTP transport (For remote cloud / Docker microservice deployments)
-    elif args.transport == "http":
-        sys.stderr.write(
-            f"Starting NodeWatch MCP in HTTP mode on {args.host}:{args.port}\n"
-        )
-        mcp.run(transport="http", host=args.host, port=args.port)
+        # HTTP transport (For remote cloud / Docker microservice deployments)
+        elif args.transport == "http":
+            sys.stderr.write(
+                f"Starting NodeWatch MCP in HTTP mode on {args.host}:{args.port}\n"
+            )
+            mcp.run(transport="http", host=args.host, port=args.port)
 
-    # SSE transport
-    elif args.transport == "sse":
-        sys.stderr.write(
-            f"Starting NodeWatch MCP in SSE mode on {args.host}:{args.port}\n"
-        )
-        mcp.run(transport="sse", host=args.host, port=args.port)
+        # SSE transport
+        elif args.transport == "sse":
+            sys.stderr.write(
+                f"Starting NodeWatch MCP in SSE mode on {args.host}:{args.port}\n"
+            )
+            mcp.run(transport="sse", host=args.host, port=args.port)
+    except KeyboardInterrupt:
+        sys.stderr.write("\nShutting down cleanly.\n")
+        sys.exit(0)
 
 
 if __name__ == "__main__":
