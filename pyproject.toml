@@ -13,6 +13,10 @@ dependencies = [
     "pydantic>=2.13.4",
 ]
 
+# Defines the CLI binary command and maps it to cli.py:main
+[project.scripts]
+nodewatch-mcp = "nodewatch_mcp.cli:main"
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
