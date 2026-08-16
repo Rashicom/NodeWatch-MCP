@@ -116,8 +116,8 @@ def get_top_processes(count: int = 10) -> TopProcesses:
 def get_system_overview() -> SystemOverview:
     """Gathers a high-level system overview."""
     boot_time_timestamp = psutil.boot_time()
-    boot_dt = datetime.datetime.fromtimestamp(boot_time_timestamp)
-    uptime_seconds = datetime.datetime.now().timestamp() - boot_time_timestamp
+    boot_dt = datetime.datetime.fromtimestamp(boot_time_timestamp, tz=datetime.timezone.utc)
+    uptime_seconds = (datetime.datetime.now(datetime.timezone.utc).timestamp() - boot_time_timestamp)
     uptime_str = str(datetime.timedelta(seconds=uptime_seconds))
 
     try:
