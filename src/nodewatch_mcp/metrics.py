@@ -1,8 +1,9 @@
 import datetime
-import psutil
 import socket
-from typing import List
 import time
+
+import psutil
+
 from nodewatch_mcp.schemas import (
     CpuMetrics,
     DiskMetrics,
@@ -13,9 +14,10 @@ from nodewatch_mcp.schemas import (
     NetworkMetrics,
     Process,
     SwapMemoryUsage,
+    SystemOverview,
     TopProcesses,
-    SystemOverview
 )
+
 
 def get_cpu_metrics() -> CpuMetrics:
     """Gathers current CPU metrics."""
@@ -27,6 +29,7 @@ def get_cpu_metrics() -> CpuMetrics:
         usage_per_core=(usage := psutil.cpu_percent(interval=1, percpu=True)),
         total_usage=sum(usage) / len(usage),
     )
+
 
 def get_memory_metrics() -> MemoryMetrics:
     """Gathers current RAM and Swap memory metrics."""
@@ -57,6 +60,7 @@ def get_disk_metrics() -> DiskMetrics:
             continue
     return DiskMetrics(partitions=partitions)
 
+
 def get_network_metrics() -> NetworkMetrics:
     """Gathers network I/O statistics for all interfaces."""
     net_io = psutil.net_io_counters(pernic=True)
@@ -84,7 +88,7 @@ def get_top_processes(count: int = 10) -> TopProcesses:
         "memory_percent",
         "status",
     ]
-    processes: List[Process] = []
+    processes: list[Process] = []
 
     for proc in psutil.process_iter(attrs):
         try:
@@ -106,9 +110,7 @@ def get_top_processes(count: int = 10) -> TopProcesses:
             continue
 
     # Sort descending by CPU usage
-    sorted_processes = sorted(
-        processes, key=lambda p: p.cpu_percent, reverse=True
-    )
+    sorted_processes = sorted(processes, key=lambda p: p.cpu_percent, reverse=True)
 
     return TopProcesses(processes=sorted_processes[:count])
 
@@ -116,13 +118,15 @@ def get_top_processes(count: int = 10) -> TopProcesses:
 def get_system_overview() -> SystemOverview:
     """Gathers a high-level system overview."""
     boot_time_timestamp = psutil.boot_time()
-    boot_dt = datetime.datetime.fromtimestamp(boot_time_timestamp, tz=datetime.timezone.utc)
-    uptime_seconds = (datetime.datetime.now(datetime.timezone.utc).timestamp() - boot_time_timestamp)
+    boot_dt = datetime.datetime.fromtimestamp(boot_time_timestamp, tz=datetime.UTC)
+    uptime_seconds = (
+        datetime.datetime.now(datetime.UTC).timestamp() - boot_time_timestamp
+    )
     uptime_str = str(datetime.timedelta(seconds=uptime_seconds))
 
     try:
         hostname = socket.gethostname()
-    except Exception:
+    except OSError:
         hostname = "localhost"
 
     return SystemOverview(

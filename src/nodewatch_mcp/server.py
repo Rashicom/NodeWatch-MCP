@@ -1,27 +1,26 @@
 from fastmcp import FastMCP
-from typing import Optional
+
 from nodewatch_mcp.metrics import (
-    get_system_overview,
     get_cpu_metrics,
     get_disk_metrics,
     get_memory_metrics,
     get_network_metrics,
+    get_system_overview,
     get_top_processes,
 )
 from nodewatch_mcp.schemas import (
-    SystemOverview,
     CpuMetrics,
-    MemoryMetrics,
     DiskMetrics,
+    MemoryMetrics,
     NetworkMetrics,
+    SystemOverview,
     TopProcesses,
 )
-
 
 mcp = FastMCP(
     name="🛰️ NodeWatch MCP",
     instructions="A server for monitoring system health and hardware telemetry.",
-    version="0.1.0"
+    version="0.1.0",
 )
 
 
@@ -61,6 +60,6 @@ def network_metrics() -> NetworkMetrics:
 
 
 @mcp.tool()
-def top_processes(count: Optional[int] = 10) -> TopProcesses:
+def top_processes(count: int | None = 10) -> TopProcesses:
     """Get a list of the top resource-consuming processes, sorted by CPU usage."""
     return get_top_processes(count=count)
