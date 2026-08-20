@@ -99,3 +99,15 @@ class SystemOverview(BaseModel):
     os: str
     uptime: str
     boot_time: datetime.datetime
+
+
+class LogFiles(BaseModel):
+    """A list of log filenames."""
+
+    files: list[str] = Field(default_factory=list)
+
+
+class LogRecords(BaseModel):
+    """A list of log records."""
+
+    records: list[str] = Field(default_factory=list)

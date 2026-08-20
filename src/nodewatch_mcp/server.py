@@ -3,14 +3,18 @@ from fastmcp import FastMCP
 from nodewatch_mcp.metrics import (
     get_cpu_metrics,
     get_disk_metrics,
+    get_log_records,
     get_memory_metrics,
     get_network_metrics,
     get_system_overview,
     get_top_processes,
+    list_log_files,
 )
 from nodewatch_mcp.schemas import (
     CpuMetrics,
     DiskMetrics,
+    LogFiles,
+    LogRecords,
     MemoryMetrics,
     NetworkMetrics,
     SystemOverview,
@@ -63,3 +67,25 @@ def network_metrics() -> NetworkMetrics:
 def top_processes(count: int | None = 10) -> TopProcesses:
     """Get a list of the top resource-consuming processes, sorted by CPU usage."""
     return get_top_processes(count=count)
+
+
+@mcp.tool()
+def log_files() -> LogFiles | str:
+    """Get a list of available log files on the system."""
+    try:
+        return list_log_files()
+    except Exception as e:  # noqa: BLE001
+        return f"Error: {e!s}"
+
+
+@mcp.tool()
+def log_records(filename: str, num_records: int = 100) -> LogRecords | str:
+    """Get a specific number of records from a given log file."""
+    try:
+        return get_log_records(filename, num_records)
+    except FileNotFoundError as e:
+        return f"Error: File not found. {e!s}"
+    except PermissionError as e:
+        return f"Error: Permission denied. {e!s}"
+    except Exception as e:  # noqa: BLE001
+        return f"Error: {e!s}"

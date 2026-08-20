@@ -1,16 +1,22 @@
 import datetime
 
+import pytest
+
 from nodewatch_mcp.metrics import (
     get_cpu_metrics,
     get_disk_metrics,
+    get_log_records,
     get_memory_metrics,
     get_network_metrics,
     get_system_overview,
     get_top_processes,
+    list_log_files,
 )
 from nodewatch_mcp.schemas import (
     CpuMetrics,
     DiskMetrics,
+    LogFiles,
+    LogRecords,
     MemoryMetrics,
     NetworkMetrics,
     SystemOverview,
@@ -90,3 +96,38 @@ def test_get_top_processes():
         assert isinstance(proc.name, str)
         assert isinstance(proc.cpu_percent, float)
         assert isinstance(proc.memory_percent, float)
+
+
+def test_list_log_files():
+    """Tests the list_log_files function."""
+    metrics = list_log_files()
+    assert isinstance(metrics, LogFiles)
+    assert isinstance(metrics.files, list)
+    if metrics.files:
+        assert isinstance(metrics.files[0], str)
+
+
+def test_get_log_records():
+    """Tests the get_log_records function."""
+    files_metric = list_log_files()
+    if not files_metric.files:
+        pytest.skip("No log files found to test.")
+
+    filename = files_metric.files[0]
+    try:
+        records = get_log_records(filename, 5)
+        assert isinstance(records, LogRecords)
+        assert isinstance(records.records, list)
+        assert len(records.records) <= 5
+        if records.records:
+            assert isinstance(records.records[0], str)
+    except PermissionError:
+        pytest.skip("Permission denied reading log file.")
+    except Exception as e:  # noqa: BLE001
+        pytest.fail(f"Unexpected exception: {e}")
+
+
+def test_get_log_records_not_found():
+    """Tests get_log_records with a non-existent file."""
+    with pytest.raises(FileNotFoundError):
+        get_log_records("this_file_should_not_exist_12345.log", 5)

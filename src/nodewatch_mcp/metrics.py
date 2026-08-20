@@ -1,6 +1,10 @@
 import datetime
+import os
 import socket
+import sys
 import time
+from collections import deque
+from pathlib import Path
 
 import psutil
 
@@ -8,6 +12,8 @@ from nodewatch_mcp.schemas import (
     CpuMetrics,
     DiskMetrics,
     DiskUsage,
+    LogFiles,
+    LogRecords,
     MemoryMetrics,
     MemoryUsage,
     NetworkInterfaceMetrics,
@@ -135,3 +141,59 @@ def get_system_overview() -> SystemOverview:
         uptime=uptime_str,
         boot_time=boot_dt,
     )
+
+
+def list_log_files() -> LogFiles:
+    """Retrieves a list of log filenames from the system log directory."""
+    if sys.platform == "win32":
+        log_dir = (
+            Path(os.environ.get("WINDIR", "C:\\Windows"))
+            / "System32"
+            / "winevt"
+            / "Logs"
+        )
+    else:
+        log_dir = Path("/var/log")
+
+    files = []
+    if log_dir.exists() and log_dir.is_dir():
+        for path in log_dir.rglob("*"):
+            if path.is_file():
+                files.append(path.name)
+
+    return LogFiles(files=files)
+
+
+def get_log_records(filename: str, num_records: int) -> LogRecords:
+    """Retrieves a specific number of records from a given log file."""
+    if sys.platform == "win32":
+        log_dir = (
+            Path(os.environ.get("WINDIR", "C:\\Windows"))
+            / "System32"
+            / "winevt"
+            / "Logs"
+        )
+    else:
+        log_dir = Path("/var/log")
+
+    records = []
+    file_path = None
+
+    if log_dir.exists() and log_dir.is_dir():
+        for path in log_dir.rglob("*"):
+            if path.name == filename and path.is_file():
+                file_path = path
+                break
+
+    if not file_path:
+        raise FileNotFoundError(f"Log file '{filename}' not found in {log_dir}")
+
+    try:
+        with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+            records = [line.strip() for line in deque(f, maxlen=num_records)]
+    except PermissionError:
+        raise PermissionError(f"Permission denied when trying to read {file_path}")
+    except Exception as e:  # noqa: BLE001
+        raise RuntimeError(f"Failed to read {file_path}: {e!s}")
+
+    return LogRecords(records=records)
