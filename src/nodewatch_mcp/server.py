@@ -6,6 +6,8 @@ from nodewatch_mcp.metrics import (
     get_log_records,
     get_memory_metrics,
     get_network_metrics,
+    get_open_ports,
+    get_process_by_port,
     get_system_overview,
     get_top_processes,
     list_log_files,
@@ -17,6 +19,8 @@ from nodewatch_mcp.schemas import (
     LogRecords,
     MemoryMetrics,
     NetworkMetrics,
+    OpenPort,
+    Process,
     SystemOverview,
     TopProcesses,
 )
@@ -87,5 +91,26 @@ def log_records(filename: str, num_records: int = 100) -> LogRecords | str:
         return f"Error: File not found. {e!s}"
     except PermissionError as e:
         return f"Error: Permission denied. {e!s}"
+    except Exception as e:  # noqa: BLE001
+        return f"Error: {e!s}"
+
+
+@mcp.tool()
+def open_ports() -> list[OpenPort] | str:
+    """Get a list of all open ports and their associated processes."""
+    try:
+        return get_open_ports()
+    except Exception as e:  # noqa: BLE001
+        return f"Error: {e!s}"
+
+
+@mcp.tool()
+def process_by_port(port: int) -> Process | str:
+    """Get details of the process running on a specific port."""
+    try:
+        proc = get_process_by_port(port)
+        if proc:
+            return proc
+        return f"No process found running on port {port}."
     except Exception as e:  # noqa: BLE001
         return f"Error: {e!s}"

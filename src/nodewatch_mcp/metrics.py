@@ -18,6 +18,7 @@ from nodewatch_mcp.schemas import (
     MemoryUsage,
     NetworkInterfaceMetrics,
     NetworkMetrics,
+    OpenPort,
     Process,
     SwapMemoryUsage,
     SystemOverview,
@@ -197,3 +198,86 @@ def get_log_records(filename: str, num_records: int) -> LogRecords:
         raise RuntimeError(f"Failed to read {file_path}: {e!s}")
 
     return LogRecords(records=records)
+
+
+def get_open_ports() -> list[OpenPort]:
+    """Retrieves all ports currently open/listening and their associated processes."""
+    ports = []
+
+    connections_with_pid = []
+    try:
+        for conn in psutil.net_connections(kind="all"):
+            connections_with_pid.append((conn, getattr(conn, "pid", None)))
+    except psutil.AccessDenied:
+        for proc in psutil.process_iter(["pid"]):
+            try:
+                for conn in proc.net_connections(kind="all"):
+                    connections_with_pid.append((conn, proc.info["pid"]))
+            except (psutil.AccessDenied, psutil.NoSuchProcess):
+                continue
+
+    for conn, pid in connections_with_pid:
+        if not conn.laddr or not hasattr(conn.laddr, "port"):
+            continue
+
+        port = conn.laddr.port
+        if not port:
+            continue
+
+        protocol = (
+            "tcp"
+            if conn.type == socket.SOCK_STREAM
+            else "udp"
+            if conn.type == socket.SOCK_DGRAM
+            else "other"
+        )
+
+        process_name = None
+        if pid:
+            try:
+                proc = psutil.Process(pid)
+                process_name = proc.name()
+            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                pass
+
+        ports.append(
+            OpenPort(
+                port=port,
+                protocol=protocol,
+                status=conn.status,
+                pid=pid,
+                process_name=process_name,
+            )
+        )
+
+    return ports
+
+
+def get_process_by_port(port: int) -> Process | None:
+    """Retrieves the process running on a specific port."""
+    connections_with_pid = []
+    try:
+        for conn in psutil.net_connections(kind="all"):
+            connections_with_pid.append((conn, getattr(conn, "pid", None)))
+    except psutil.AccessDenied:
+        for proc in psutil.process_iter(["pid"]):
+            try:
+                for conn in proc.net_connections(kind="all"):
+                    connections_with_pid.append((conn, proc.info["pid"]))
+            except (psutil.AccessDenied, psutil.NoSuchProcess):
+                continue
+
+    for conn, pid in connections_with_pid:
+        if conn.laddr and hasattr(conn.laddr, "port") and conn.laddr.port == port and pid:
+            try:
+                proc = psutil.Process(pid)
+                info = proc.as_dict(
+                    attrs=["pid", "name", "username", "cpu_percent", "memory_percent", "status"]
+                )
+                info["cpu_percent"] = round(float(info.get("cpu_percent") or 0.0), 2)
+                info["memory_percent"] = round(float(info.get("memory_percent") or 0.0), 2)
+                return Process(**info)
+            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                pass
+
+    return None

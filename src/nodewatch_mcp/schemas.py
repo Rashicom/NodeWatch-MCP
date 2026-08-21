@@ -111,3 +111,13 @@ class LogRecords(BaseModel):
     """A list of log records."""
 
     records: list[str] = Field(default_factory=list)
+
+
+class OpenPort(BaseModel):
+    """Details of an open port and the process using it."""
+
+    port: int
+    protocol: str
+    status: str
+    pid: int | None = None
+    process_name: str | None = None
