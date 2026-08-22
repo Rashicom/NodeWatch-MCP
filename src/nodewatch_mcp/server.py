@@ -1,5 +1,4 @@
-from fastmcp import FastMCP
-
+from fastmcp import Context, FastMCP
 from nodewatch_mcp.metrics import (
     get_cpu_metrics,
     get_disk_metrics,
@@ -10,6 +9,7 @@ from nodewatch_mcp.metrics import (
     get_process_by_port,
     get_system_overview,
     get_top_processes,
+    kill_process,
     list_log_files,
 )
 from nodewatch_mcp.schemas import (
@@ -112,5 +112,54 @@ def process_by_port(port: int) -> Process | str:
         if proc:
             return proc
         return f"No process found running on port {port}."
+    except Exception as e:  # noqa: BLE001
+        return f"Error: {e!s}"
+
+
+@mcp.tool()
+async def kill_process_on_port(port: int, context: Context) -> str:
+    """Kill a process running on a specific port, after obtaining user confirmation."""
+    try:
+        proc = get_process_by_port(port)
+        if not proc:
+            return f"No process found running on port {port}."
+
+        prompt = (
+            f"You are a system administrator assistant. A user wants to kill the process "
+            f"running on port {port}. The process is '{proc.name}' (PID: {proc.pid}). "
+            "Write a short, direct 1-sentence warning/confirmation message "
+            "evaluating the importance of this process. "
+            "For example: 'This port is important to run Google Chrome, if you kill this your Chrome capability is lost. Do you want to kill the process?' "
+            "Or 'There is a web server running on port 8000, do you want to kill it?'."
+        )
+
+        await context.info("Generating confirmation message...")
+        sample_result = await context.sample(prompt, max_tokens=150)
+
+        if (
+            hasattr(sample_result, "content")
+            and isinstance(sample_result.content, list)
+            and len(sample_result.content) > 0
+        ):
+            confirmation_msg = getattr(
+                sample_result.content[0], "text", str(sample_result)
+            )
+        else:
+            confirmation_msg = getattr(sample_result, "value", str(sample_result))
+
+        await context.info("Sending confirmation message to user...")
+        elicit_result = await context.elicit(confirmation_msg)
+        user_response = (
+            str(getattr(elicit_result, "value", elicit_result)).lower().strip()
+        )
+
+        if user_response in ["yes", "y", "true", "proceed", "kill"]:
+            success = kill_process(proc.pid)
+            if success:
+                return f"Successfully killed process '{proc.name}' (PID: {proc.pid}) on port {port}."
+            else:
+                return f"Failed to kill process '{proc.name}' (PID: {proc.pid}). Permission denied or process not found."
+        else:
+            return "Kill process aborted by user."
     except Exception as e:  # noqa: BLE001
         return f"Error: {e!s}"

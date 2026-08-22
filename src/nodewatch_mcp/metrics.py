@@ -268,16 +268,40 @@ def get_process_by_port(port: int) -> Process | None:
                 continue
 
     for conn, pid in connections_with_pid:
-        if conn.laddr and hasattr(conn.laddr, "port") and conn.laddr.port == port and pid:
+        if (
+            conn.laddr
+            and hasattr(conn.laddr, "port")
+            and conn.laddr.port == port
+            and pid
+        ):
             try:
                 proc = psutil.Process(pid)
                 info = proc.as_dict(
-                    attrs=["pid", "name", "username", "cpu_percent", "memory_percent", "status"]
+                    attrs=[
+                        "pid",
+                        "name",
+                        "username",
+                        "cpu_percent",
+                        "memory_percent",
+                        "status",
+                    ]
                 )
                 info["cpu_percent"] = round(float(info.get("cpu_percent") or 0.0), 2)
-                info["memory_percent"] = round(float(info.get("memory_percent") or 0.0), 2)
+                info["memory_percent"] = round(
+                    float(info.get("memory_percent") or 0.0), 2
+                )
                 return Process(**info)
             except (psutil.NoSuchProcess, psutil.AccessDenied):
                 pass
 
     return None
+
+
+def kill_process(pid: int) -> bool:
+    """Kills the process with the given PID."""
+    try:
+        proc = psutil.Process(pid)
+        proc.kill()
+        return True
+    except (psutil.NoSuchProcess, psutil.AccessDenied):
+        return False
