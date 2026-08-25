@@ -1,16 +1,26 @@
 import datetime
+from unittest.mock import patch
+
+import pytest
 
 from nodewatch_mcp.metrics import (
     get_cpu_metrics,
     get_disk_metrics,
+    get_log_records,
     get_memory_metrics,
     get_network_metrics,
+    get_open_ports,
+    get_process_by_port,
     get_system_overview,
     get_top_processes,
+    kill_process,
+    list_log_files,
 )
 from nodewatch_mcp.schemas import (
     CpuMetrics,
     DiskMetrics,
+    LogFiles,
+    LogRecords,
     MemoryMetrics,
     NetworkMetrics,
     SystemOverview,
@@ -90,3 +100,98 @@ def test_get_top_processes():
         assert isinstance(proc.name, str)
         assert isinstance(proc.cpu_percent, float)
         assert isinstance(proc.memory_percent, float)
+
+
+def test_list_log_files():
+    """Tests the list_log_files function."""
+    metrics = list_log_files()
+    assert isinstance(metrics, LogFiles)
+    assert isinstance(metrics.files, list)
+    if metrics.files:
+        assert isinstance(metrics.files[0], str)
+
+
+def test_get_log_records():
+    """Tests the get_log_records function."""
+    files_metric = list_log_files()
+    if not files_metric.files:
+        pytest.skip("No log files found to test.")
+
+    filename = files_metric.files[0]
+    try:
+        records = get_log_records(filename, 5)
+        assert isinstance(records, LogRecords)
+        assert isinstance(records.records, list)
+        assert len(records.records) <= 5
+        if records.records:
+            assert isinstance(records.records[0], str)
+    except PermissionError:
+        pytest.skip("Permission denied reading log file.")
+    except Exception as e:  # noqa: BLE001
+        pytest.fail(f"Unexpected exception: {e}")
+
+
+def test_get_open_ports():
+    """Tests the get_open_ports function."""
+    metrics = get_open_ports()
+    assert isinstance(metrics, list)
+    if metrics:
+        port = metrics[0]
+        assert isinstance(port.port, int)
+        assert isinstance(port.protocol, str)
+        assert isinstance(port.status, str)
+
+
+def test_get_process_by_port():
+    """Tests the get_process_by_port function."""
+    ports_metric = get_open_ports()
+    if not ports_metric:
+        pytest.skip("No open ports found to test.")
+
+    test_port = None
+    for p in ports_metric:
+        if p.pid:
+            test_port = p.port
+            break
+
+    if not test_port:
+        pytest.skip("No open ports with associated PID found to test.")
+
+    proc = get_process_by_port(test_port)
+    assert proc is not None
+    assert isinstance(proc.pid, int)
+    assert isinstance(proc.name, str)
+
+
+def test_get_process_by_port_not_found():
+    """Tests get_process_by_port with an unlikely port."""
+    proc = get_process_by_port(65535)
+    assert proc is None
+
+
+def test_kill_process_success():
+    """Tests kill_process when process exists and can be killed."""
+    with patch("nodewatch_mcp.metrics.psutil.Process") as mock_process:
+        mock_proc_instance = mock_process.return_value
+        mock_proc_instance.kill.return_value = None
+        result = kill_process(12345)
+        assert result is True
+        mock_process.assert_called_once_with(12345)
+        mock_proc_instance.kill.assert_called_once()
+
+
+def test_kill_process_not_found():
+    """Tests kill_process when process does not exist."""
+    with patch("nodewatch_mcp.metrics.psutil.Process") as mock_process:
+        import psutil
+
+        mock_process.side_effect = psutil.NoSuchProcess(12345)
+
+        result = kill_process(12345)
+        assert result is False
+
+
+def test_get_log_records_not_found():
+    """Tests get_log_records with a non-existent file."""
+    with pytest.raises(FileNotFoundError):
+        get_log_records("this_file_should_not_exist_12345.log", 5)
